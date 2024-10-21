@@ -1,0 +1,64 @@
+user www-data;
+worker_processes auto;
+
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+    error_log /var/log/nginx/error.log;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types {
+        text/html html;
+        text/css css;
+        text/xml xml;
+        image/gif gif;
+        image/jpeg jpg;
+        application/javascript js;
+        application/atom+xml atom;
+        application/rss+xml rss;
+        application/x-font-ttf ttf;
+        font/opentype otf;
+        image/x-icon ico;
+        image/svg+xml svg;
+        application/x-shockwave-flash swf;
+        application/x-font-opentype otf;
+        application/vnd.ms-fontobject eot;
+        application/x-font-woff woff;
+        application/x-font-woff2 woff2;
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        root /var/www/html;
+        index index.php index.html index.htm;
+
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+        location ~ \.php$ {
+            include snippets/fastcgi-php.conf;
+            fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+
+        location ~ /\.ht {
+            deny all;
+        }
+    }
+}
