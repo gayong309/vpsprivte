@@ -4,16 +4,11 @@ ARG NGROK_TOKEN
 ARG PASSWORD=rootuser
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install packages and RDP server
+# Install packages
 RUN apt update && apt upgrade -y && apt install -y \
-    wget unzip vim curl python3 python3-pip python3-venv \
+    ssh wget unzip vim curl python3 python3-pip python3-venv \
     mariadb-server mariadb-client nginx \
-    xrdp xfce4 xfce4-goodies \
     && apt clean
-
-# Set up XFCE4 for xrdp session
-RUN echo xfce4-session >~/.xsession \
-    && service xrdp start
 
 # Install Python requests module
 RUN pip3 install requests
@@ -21,7 +16,8 @@ RUN pip3 install requests
 # Install ngrok
 RUN wget -O ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip \
     && unzip ngrok.zip \
-    && rm ngrok.zip
+    && rm ngrok.zip \
+    && mkdir /run/sshd
 
 # Install Docker
 RUN curl -fsSL https://get.docker.com -o get-docker.sh \
@@ -45,16 +41,17 @@ COPY setup.sh /setup.sh
 COPY get_ngrok_info.py /get_ngrok_info.py
 RUN chmod +x /setup.sh /get_ngrok_info.py
 
-# Configure RDP (xrdp) and ngrok
-RUN echo root:${PASSWORD} | chpasswd \
+# Configure SSH and ngrok
+RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config \
+    && echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config \
+    && echo root:${PASSWORD} | chpasswd \
     && echo "#!/bin/bash" > /docker.sh \
-    && echo "/ngrok tcp 3389 --authtoken ${NGROK_TOKEN} &" >> /docker.sh \
+    && echo "/ngrok tcp 22 --authtoken ${NGROK_TOKEN} &" >> /docker.sh \
     && echo "sleep 5" >> /docker.sh \
     && echo "python3 /get_ngrok_info.py ${PASSWORD}" >> /docker.sh \
-    && echo "service xrdp start" >> /docker.sh \
+    && echo '/usr/sbin/sshd -D' >> /docker.sh \
     && chmod +x /docker.sh
 
-# Expose RDP port
-EXPOSE 3389
+EXPOSE 22
 
 CMD ["/bin/bash", "/docker.sh"]
